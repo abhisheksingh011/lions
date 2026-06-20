@@ -51,11 +51,26 @@ class Chunk:
     text: str            # the rule text itself (what we show the user)
 
 
+# Common mojibake from the PDF->markdown conversion. The lone replacement
+# char (U+FFFD) in this corpus is almost always a lost apostrophe.
+_MOJIBAKE = {
+    "â€™": "'", "â€˜": "'", "â€œ": '"', "â€\x9d": '"',
+    "â€”": "-", "â€“": "-", "â€¦": "...", "Â ": " ", "�": "'",
+}
+
+
+def _fix_text(s: str) -> str:
+    for bad, good in _MOJIBAKE.items():
+        if bad in s:
+            s = s.replace(bad, good)
+    return s
+
+
 def _clean_lines(raw: str) -> list[str]:
-    """Normalise whitespace and strip page furniture, keeping line structure."""
+    """Normalise whitespace, fix encoding artifacts, strip page furniture."""
     out: list[str] = []
     for line in raw.splitlines():
-        s = " ".join(line.split())  # collapse internal whitespace
+        s = _fix_text(" ".join(line.split()))  # collapse whitespace + fix mojibake
         if not s:
             out.append("")
             continue
@@ -67,14 +82,31 @@ def _clean_lines(raw: str) -> list[str]:
     return out
 
 
+# Short title phrases that mark a section heading.
+_HEADING_KEYS = (
+    "local rules", "playing conditions", "match conditions", "pre-match",
+    "the toss", "the team list", "preamble", "preface", "appendix",
+    "playing rules", "governing rules", "code of conduct",
+)
+
+
 def _looks_like_heading(line: str) -> bool:
+    """A heading is a SHORT, title-like line — not a sentence."""
+    if _NUM_RE.match(line) or _LAW_RE.match(line):
+        return False
+    words = line.split()
+    if len(words) > 9 or line.endswith((".", ",", ";", ":")):
+        return False  # sentences / clauses are not headings
     low = line.lower()
-    if any(k in low for k in ("local rules", "regulations", "playing conditions",
-                              "match conditions", "preamble", "preface", "appendix")):
-        return True
     # Short ALL-CAPS title line
     letters = re.sub(r"[^A-Za-z]", "", line)
-    if letters and line.upper() == line and len(line.split()) <= 12 and len(line) > 3:
+    if letters and line.upper() == line and len(line) > 3:
+        return True
+    # Recognised title phrase at the start/end of a short line
+    if any(low.startswith(k) or low.endswith(k) for k in _HEADING_KEYS):
+        return True
+    # "BCMCL Local Rules – the toss" style (en dash, short)
+    if "–" in line:
         return True
     return False
 

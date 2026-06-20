@@ -30,10 +30,10 @@ See [architecture.html](architecture.html) for a full visual walkthrough.
 
 ```
 cricket/
-├── frontend/            # → GitHub Pages
+├── docs/                # → GitHub Pages (chatbot UI)
 │   ├── index.html
 │   ├── style.css
-│   ├── config.js        # set BACKEND_URL here
+│   ├── config.js        # set BACKEND_URL here (auto-uses localhost when local)
 │   └── app.js
 ├── backend/             # → Hugging Face Space (via space_build/)
 │   ├── app.py           # FastAPI: /search, /health  (+ CORS, rate-limit, cache)
@@ -94,9 +94,8 @@ The Space builds the Docker image and starts on port 7860. Check
 
 ### 2. Frontend → GitHub Pages
 
-1. Confirm `frontend/config.js` points to your Space URL.
-2. In the GitHub repo → **Settings → Pages**, serve from the `frontend/` folder
-   (or move `frontend/` contents to a `docs/` folder / `gh-pages` branch).
+1. Confirm `docs/config.js` points to your Space URL.
+2. In the GitHub repo → **Settings → Pages**, serve from `main` branch, `/docs` folder.
 3. Once live, set the Space's `ALLOWED_ORIGINS` to your Pages URL for tighter CORS.
 
 ---
