@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cricket Rules Search — Architecture Explained</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#30363d;
+    --ink:#e6edf3; --muted:#9aa7b4; --accent:#2f9e7e; --accent2:#3b82f6;
+    --bcmcl:#2f9e7e; --icc:#3b82f6; --mcc:#a855f7;
+    --warn:#e3b341; --danger:#f47067; --code:#0b0f14;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6; font-size:16px;
+  }
+  header.hero{
+    padding:56px 24px 40px; text-align:center;
+    background:radial-gradient(1200px 400px at 50% -10%, rgba(47,158,126,.25), transparent 60%), var(--panel);
+    border-bottom:1px solid var(--line);
+  }
+  .hero h1{margin:0 0 10px; font-size:34px; letter-spacing:-.5px}
+  .hero p{margin:0 auto; max-width:680px; color:var(--muted); font-size:18px}
+  .badge-row{margin-top:18px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap}
+  .badge{background:var(--panel2); border:1px solid var(--line); border-radius:999px;
+    padding:6px 14px; font-size:13px; color:var(--ink)}
+  .badge b{color:var(--accent)}
+  .wrap{max-width:920px; margin:0 auto; padding:0 24px 80px}
+  nav.toc{
+    position:sticky; top:0; z-index:5; background:rgba(13,17,23,.92);
+    backdrop-filter:blur(6px); border-bottom:1px solid var(--line);
+    display:flex; gap:6px; flex-wrap:wrap; padding:12px 24px; justify-content:center;
+  }
+  nav.toc a{color:var(--muted); text-decoration:none; font-size:13px;
+    padding:5px 10px; border-radius:6px}
+  nav.toc a:hover{color:var(--ink); background:var(--panel2)}
+  section{margin-top:48px}
+  h2{font-size:24px; border-left:4px solid var(--accent); padding-left:12px; margin-bottom:6px}
+  h3{font-size:18px; color:var(--ink); margin-top:28px}
+  .lead{color:var(--muted); margin-top:0}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:22px 24px; margin-top:18px}
+  .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px}
+  @media(max-width:760px){.grid3{grid-template-columns:1fr}}
+  .layer{border-radius:14px; padding:18px; border:1px solid var(--line); background:var(--panel2)}
+  .layer .tag{font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted)}
+  .layer h4{margin:6px 0 8px; font-size:17px}
+  .layer .free{display:inline-block; font-size:11px; background:rgba(47,158,126,.18);
+    color:var(--accent); border:1px solid rgba(47,158,126,.4); border-radius:6px; padding:2px 8px; margin-top:8px}
+  .layer p{color:var(--muted); font-size:14px; margin:8px 0 0}
+
+  /* vertical flow diagram */
+  .flow{display:flex; flex-direction:column; align-items:center; gap:0; margin-top:22px}
+  .node{width:100%; max-width:560px; background:var(--panel2); border:1px solid var(--line);
+    border-radius:12px; padding:16px 18px; position:relative}
+  .node .who{font-size:12px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+  .node .what{font-weight:600; margin-top:2px}
+  .node .detail{color:var(--muted); font-size:14px; margin-top:6px}
+  .arrow{height:46px; width:2px; background:linear-gradient(var(--line),var(--accent)); position:relative}
+  .arrow::after{content:""; position:absolute; bottom:-2px; left:-5px;
+    border:6px solid transparent; border-top-color:var(--accent)}
+  .arrow .lbl{position:absolute; left:14px; top:50%; transform:translateY(-50%);
+    white-space:nowrap; font-size:12px; color:var(--accent); background:var(--bg); padding:2px 6px;
+    border:1px solid var(--line); border-radius:6px}
+  .arrow.up{background:linear-gradient(var(--accent2),var(--line))}
+  .arrow.up::after{content:""; top:-2px; bottom:auto; border:6px solid transparent; border-bottom-color:var(--accent2)}
+  .arrow.up .lbl{color:var(--accent2)}
+
+  .step{display:flex; gap:14px; margin-top:16px}
+  .step .num{flex:0 0 34px; height:34px; width:34px; border-radius:50%;
+    background:var(--accent); color:#03150f; font-weight:700; display:flex;
+    align-items:center; justify-content:center; font-size:15px}
+  .step .body h4{margin:4px 0 4px; font-size:16px}
+  .step .body p{margin:0; color:var(--muted); font-size:14px}
+
+  pre{background:var(--code); border:1px solid var(--line); border-radius:10px;
+    padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5}
+  code{font-family:"Cascadia Code",Consolas,Menlo,monospace; color:#a5d6ff}
+  pre code{color:#c9d1d9}
+  .pill{display:inline-block; padding:1px 8px; border-radius:6px; font-size:12px; font-weight:600}
+  .pill.b{background:rgba(47,158,126,.18); color:var(--bcmcl); border:1px solid rgba(47,158,126,.4)}
+  .pill.i{background:rgba(59,130,246,.18); color:var(--icc); border:1px solid rgba(59,130,246,.4)}
+  .pill.m{background:rgba(168,85,247,.18); color:var(--mcc); border:1px solid rgba(168,85,247,.4)}
+  table{width:100%; border-collapse:collapse; margin-top:14px; font-size:14px}
+  th,td{border:1px solid var(--line); padding:10px 12px; text-align:left; vertical-align:top}
+  th{background:var(--panel2); color:var(--ink)}
+  td{color:var(--muted)}
+  .note{border-left:4px solid var(--warn); background:rgba(227,179,65,.08);
+    padding:12px 16px; border-radius:0 10px 10px 0; margin-top:16px; font-size:14px}
+  .note.bad{border-left-color:var(--danger); background:rgba(244,112,103,.08)}
+  .note b{color:var(--ink)}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; margin-top:10px; font-size:13px; color:var(--muted)}
+  footer{text-align:center; color:var(--muted); font-size:13px; padding:30px 24px; border-top:1px solid var(--line)}
+  .kbd{background:var(--panel2); border:1px solid var(--line); border-bottom-width:2px;
+    border-radius:6px; padding:1px 7px; font-size:12px; font-family:monospace}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>🏏 Cricket Rules Search</h1>
+  <p>A natural-language search engine for cricket rules — built entirely on free tiers. This page explains the architecture, end to end, with every step and every flow.</p>
+  <div class="badge-row">
+    <span class="badge">Pattern: <b>RAG</b> (Retrieval-Augmented Generation)</span>
+    <span class="badge">Cost: <b>$0</b></span>
+    <span class="badge">Stack: <b>GitHub Pages · Hugging Face · Groq</b></span>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#overview">Overview</a>
+  <a href="#layers">The 3 Layers</a>
+  <a href="#buildtime">Build-Time (offline)</a>
+  <a href="#runtime">Runtime Flow</a>
+  <a href="#search">How Search Works</a>
+  <a href="#priority">Source Priority</a>
+  <a href="#security">Security</a>
+  <a href="#tradeoffs">Free-Tier Tradeoffs</a>
+  <a href="#repo">Repo Structure</a>
+</nav>
+
+<div class="wrap">
+
+<!-- OVERVIEW -->
+<section id="overview">
+  <h2>1 · The big idea</h2>
+  <p class="lead">A plain chatbot has two problems: it doesn't know <em>your</em> specific league rules, and it can confidently invent answers. We solve both with <b>RAG</b> — an "open-book exam" for the AI.</p>
+  <div class="card">
+    <div class="step"><div class="num">A</div><div class="body"><h4>You ask a question in plain English</h4><p>“If the batter is out of the crease and the keeper breaks the stumps, is it run out or stumped?”</p></div></div>
+    <div class="step"><div class="num">B</div><div class="body"><h4>The system searches your real rule documents</h4><p>It finds the 3–5 passages most relevant <em>by meaning</em>, not by keyword.</p></div></div>
+    <div class="step"><div class="num">C</div><div class="body"><h4>It hands those passages to the AI with strict instructions</h4><p>“Answer using only these rules. Cite the source and rule number. If they don't cover it, say so.”</p></div></div>
+    <div class="step"><div class="num">D</div><div class="body"><h4>You get a grounded, cited answer</h4><p>Backed by a real rule — never a hallucination.</p></div></div>
+  </div>
+</section>
+
+<!-- LAYERS -->
+<section id="layers">
+  <h2>2 · The three free layers</h2>
+  <p class="lead">The app is split into three independent pieces. This separation is what makes it secure, maintainable, and free.</p>
+  <div class="grid3">
+    <div class="layer">
+      <div class="tag">The Face</div>
+      <h4>GitHub Pages</h4>
+      <p>Static HTML / CSS / JS. Just the search box and the rendered answer. Knows nothing secret.</p>
+      <span class="free">FREE</span>
+    </div>
+    <div class="layer">
+      <div class="tag">The Brain</div>
+      <h4>Hugging Face Space</h4>
+      <p>Python backend (FastAPI). Searches the rules, builds the prompt, holds the secret key, calls the AI.</p>
+      <span class="free">FREE TIER</span>
+    </div>
+    <div class="layer">
+      <div class="tag">The Writer</div>
+      <h4>Groq LLM</h4>
+      <p>A fast large language model (e.g. Llama 3.3 70B) that writes the final natural-language answer.</p>
+      <span class="free">FREE TIER</span>
+    </div>
+  </div>
+  <div class="note"><b>Why split it?</b> ① <b>Security</b> — the secret API key lives only on the backend, never in the browser. ② <b>Separation of concerns</b> — the pretty part and the smart part can change independently.</div>
+</section>
+
+<!-- BUILD TIME -->
+<section id="buildtime">
+  <h2>3 · Build-time step (done once, offline)</h2>
+  <p class="lead">Before anyone can search, we prepare the rules <em>once</em>. This is the <code>ingest.py</code> script. Re-run it only when the rules change.</p>
+  <div class="flow">
+    <div class="node">
+      <div class="who">Input</div>
+      <div class="what">Raw rule documents</div>
+      <div class="detail"><span class="pill b">BCMCL</span> <span class="pill i">ICC</span> <span class="pill m">MCC</span> — plain text in <code>data/raw/</code> (extracted from your PDFs).</div>
+    </div>
+    <div class="arrow"><span class="lbl">① read &amp; chunk</span></div>
+    <div class="node">
+      <div class="who">Step 1 — Chunk</div>
+      <div class="what">Split into small logical units</div>
+      <div class="detail">One rule / sub-clause per chunk. <b>This is the single biggest lever on quality</b> — long blocks dilute meaning.</div>
+    </div>
+    <div class="arrow"><span class="lbl">② tag metadata</span></div>
+    <div class="node">
+      <div class="who">Step 2 — Tag</div>
+      <div class="what">Label every chunk</div>
+      <div class="detail"><code>{ source: "BCMCL", rule_id: "12.3", text: "..." }</code></div>
+    </div>
+    <div class="arrow"><span class="lbl">③ embed</span></div>
+    <div class="node">
+      <div class="who">Step 3 — Embed</div>
+      <div class="what">Turn each chunk into a vector</div>
+      <div class="detail">Using <code>all-MiniLM-L6-v2</code> (runs locally, no API). Each chunk becomes a list of numbers representing its <em>meaning</em>.</div>
+    </div>
+    <div class="arrow"><span class="lbl">④ save</span></div>
+    <div class="node">
+      <div class="who">Output</div>
+      <div class="what">A single index file</div>
+      <div class="detail"><code>data/index/rules_index.npz</code> — vectors + metadata, committed to the repo. The backend loads this on startup.</div>
+    </div>
+  </div>
+  <div class="note"><b>Why no vector database?</b> The rule set is tiny (3 documents). We embed everything once and load it into memory. Cosine similarity with NumPy is enough — no database to host, nothing to get wiped on restart, one fewer moving part.</div>
+</section>
+
+<!-- RUNTIME -->
+<section id="runtime">
+  <h2>4 · Runtime flow — one full request</h2>
+  <p class="lead">What happens, step by step, the moment a user hits “Search”. Green arrows go down (request); blue arrows come back up (response).</p>
+  <div class="flow">
+    <div class="node">
+      <div class="who">Browser · GitHub Pages</div>
+      <div class="what">User types a question &amp; clicks Search</div>
+      <div class="detail">JavaScript sends <code>POST /search { "question": "..." }</code> to the backend.</div>
+    </div>
+    <div class="arrow"><span class="lbl">① question (HTTPS)</span></div>
+    <div class="node">
+      <div class="who">Backend · Hugging Face Space</div>
+      <div class="what">② Embed the question</div>
+      <div class="detail">The same <code>all-MiniLM-L6-v2</code> model turns the question into a vector — so it lives in the same "meaning space" as the rules.</div>
+    </div>
+    <div class="arrow"><span class="lbl">in-process</span></div>
+    <div class="node">
+      <div class="who">Backend</div>
+      <div class="what">③ Cosine similarity vs. all rule vectors</div>
+      <div class="detail">Compares the question-vector to every pre-computed rule-vector in memory. Measures which are "closest" in meaning.</div>
+    </div>
+    <div class="arrow"><span class="lbl">in-process</span></div>
+    <div class="node">
+      <div class="who">Backend</div>
+      <div class="what">④ Take the top-K chunks (start K=5)</div>
+      <div class="detail">Keeps the few best matches, each still tagged <span class="pill b">BCMCL</span>/<span class="pill i">ICC</span>/<span class="pill m">MCC</span>.</div>
+    </div>
+    <div class="arrow"><span class="lbl">⑤ build prompt</span></div>
+    <div class="node">
+      <div class="who">Backend → Groq</div>
+      <div class="what">⑥ Call the LLM</div>
+      <div class="detail">Sends: the question + the retrieved rules + priority instructions. The secret key is attached here, server-side only.</div>
+    </div>
+    <div class="arrow up"><span class="lbl">⑦ answer text</span></div>
+    <div class="node">
+      <div class="who">Backend</div>
+      <div class="what">Package the response</div>
+      <div class="detail">Returns <code>{ "answer": "...", "sources": [{source, rule_id}] }</code>. Handles Groq rate-limit (429) gracefully.</div>
+    </div>
+    <div class="arrow up"><span class="lbl">⑧ JSON response</span></div>
+    <div class="node">
+      <div class="who">Browser · GitHub Pages</div>
+      <div class="what">Render the answer + citation</div>
+      <div class="detail">Shows the answer and which source/rule it came from. Loading spinner hides any cold-start delay.</div>
+    </div>
+  </div>
+</section>
+
+<!-- SEARCH -->
+<section id="search">
+  <h2>5 · How "search by meaning" actually works</h2>
+  <p class="lead">This is the clever core — and why it feels smart instead of like <kbd class="kbd">Ctrl+F</kbd>.</p>
+  <div class="card">
+    <h3>Embeddings = meaning as numbers</h3>
+    <p style="color:var(--muted)">A model converts each piece of text into a <b>vector</b> (a long list of numbers) that captures its meaning. Texts about similar ideas get similar vectors — even with zero shared words.</p>
+    <pre><code>"batter out of crease, keeper breaks stumps"  →  [0.21, -0.04, 0.88, ...]
+"stumping dismissal"                          →  [0.19, -0.07, 0.85, ...]   ← close!
+"boundary scored over the rope"               →  [-0.55, 0.62, 0.10, ...]   ← far away</code></pre>
+    <h3>Cosine similarity = "how close in meaning?"</h3>
+    <p style="color:var(--muted)">To find matches, we measure the <b>angle</b> between the question-vector and each rule-vector. A small angle (score near 1.0) means very similar meaning; near 0 means unrelated. We keep the top few.</p>
+    <pre><code>question  ↘
+           ↘  small angle  →  score 0.91  ✅ keep
+   rule A  ───────────────
+
+question  ↘
+           ↘  wide angle   →  score 0.12  ❌ drop
+   rule B  ╱</code></pre>
+    <div class="note"><b>The shortcut that keeps it free:</b> with only 3 documents we never need a hosted vector database — all vectors sit in memory and a few lines of NumPy do the math instantly.</div>
+  </div>
+</section>
+
+<!-- PRIORITY -->
+<section id="priority">
+  <h2>6 · Source priority (BCMCL → ICC → MCC)</h2>
+  <p class="lead">Local league rules win; international rules are the fallback. We do <b>not</b> force this into the math — we let the LLM decide, guided by instructions.</p>
+  <div class="step"><div class="num">1</div><div class="body"><h4>Retrieve across all three sources together</h4><p>So cross-references still work and nothing relevant is hidden.</p></div></div>
+  <div class="step"><div class="num">2</div><div class="body"><h4>Pass each chunk's source label into the prompt</h4><p>The model can see whether a passage is BCMCL, ICC, or MCC.</p></div></div>
+  <div class="step"><div class="num">3</div><div class="body"><h4>Instruct the model on priority</h4><p>See the exact wording below.</p></div></div>
+  <pre><code>"Answer using the retrieved rules. If a <span style="color:#2f9e7e">BCMCL</span> rule covers the
+question, base the answer on BCMCL. Otherwise use <span style="color:#3b82f6">ICC</span>. If neither
+applies, use <span style="color:#a855f7">MCC</span>. Always state which source and rule number the
+answer comes from. If none of the retrieved rules answer the
+question, say so — do not invent a rule."</code></pre>
+  <div class="note">This keeps priority logic simple, allows cross-referencing, and blocks hallucinated rules — all at once.</div>
+</section>
+
+<!-- SECURITY -->
+<section id="security">
+  <h2>7 · Security &amp; the secret key</h2>
+  <p class="lead">The golden rule: <b>the API key never touches the browser.</b></p>
+  <div class="card">
+    <div class="step"><div class="num">🔒</div><div class="body"><h4>Key lives only as a secret in the Hugging Face Space settings</h4><p>The frontend calls <em>your</em> backend; only your backend calls Groq.</p></div></div>
+    <div class="step"><div class="num">🌐</div><div class="body"><h4>CORS</h4><p>The backend allows requests only from your GitHub Pages domain.</p></div></div>
+  </div>
+  <div class="note bad"><b>Why it matters:</b> if the key were in the browser's JavaScript, anyone could view-source, copy it, and burn your free quota (or worse). Proxying through the backend is the standard, professional fix.</div>
+</section>
+
+<!-- TRADEOFFS -->
+<section id="tradeoffs">
+  <h2>8 · The honest free-tier tradeoffs</h2>
+  <table>
+    <tr><th>Constraint</th><th>What happens</th><th>How we handle it</th></tr>
+    <tr><td><b>Cold start</b></td><td>Free HF Spaces sleep when idle; first request after a nap takes ~30s+.</td><td>Show a clear loading state; optionally ping <code>/health</code> to pre-warm the Space.</td></tr>
+    <tr><td><b>Rate limits</b></td><td>Groq free tier ≈ 30 requests/min, ~1,000/day, with token-per-minute caps.</td><td>Keep context tight — send only the top 3–5 chunks. Handle <code>429</code> with a friendly message, not a crash.</td></tr>
+    <tr><td><b>No GPU</b></td><td>Embeddings run on CPU.</td><td>Fine — the rule set is tiny, so CPU is fast enough.</td></tr>
+  </table>
+  <div class="note">For a personal / league cricket tool, none of these bite. They'd only matter at viral scale, which this doesn't need.</div>
+</section>
+
+<!-- REPO -->
+<section id="repo">
+  <h2>9 · How the code is organized</h2>
+  <pre><code>cricket-rules-search/
+├── frontend/                 # → deploy to GitHub Pages (the Face)
+│   ├── index.html
+│   ├── style.css
+│   └── app.js                # fetch() to the HF Space /search
+├── backend/                  # → deploy to Hugging Face Space (the Brain)
+│   ├── app.py                # FastAPI: /search, /health endpoints
+│   ├── retrieval.py          # load index, embed query, cosine sim, top-K
+│   ├── llm.py                # Groq call + prompt building + 429 handling
+│   └── requirements.txt
+├── ingest.py                 # build-time: chunk + embed + save index
+├── data/
+│   ├── raw/                  # bcmcl.md, icc.md, mcc.md  (from your PDFs)
+│   └── index/                # rules_index.npz  (committed)
+└── README.md</code></pre>
+  <h3>Definition of "done" for v1</h3>
+  <div class="step"><div class="num">✓</div><div class="body"><p>A user can type a plain-English cricket question on the live site.</p></div></div>
+  <div class="step"><div class="num">✓</div><div class="body"><p>They get a correct, readable answer naming the source (BCMCL/ICC/MCC) and rule.</p></div></div>
+  <div class="step"><div class="num">✓</div><div class="body"><p>Questions with no matching rule return an honest "not found" — never a made-up rule.</p></div></div>
+  <div class="step"><div class="num">✓</div><div class="body"><p>The whole stack runs on free tiers with the key hidden.</p></div></div>
+</section>
+
+</div>
+
+<footer>
+  Cricket Rules Search · Architecture overview · Built to run on $0 free tiers.<br>
+  Open this file in any browser — it's fully self-contained, no internet required.
+</footer>
+
+</body>
+</html>

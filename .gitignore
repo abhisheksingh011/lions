@@ -1,0 +1,27 @@
+# Claude Code internal
+.claude/
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Python (for when backend/ingest are added)
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Secrets — never commit
+.env
+*.key
+secrets.*
+
+# Build artifacts
+dist/
+build/
+node_modules/
+space_build/
+
+# NOTE: data/index/rules_index.npz IS committed on purpose (the backend needs it).

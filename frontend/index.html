@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cricket Rules Search</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="head">
+      <h1>🏏 Cricket Rules Search</h1>
+      <p class="sub">Ask any cricket question in plain English — answers come from
+        <span class="src b">BCMCL</span>, <span class="src i">ICC</span>, and
+        <span class="src m">MCC</span> rules, with citations.</p>
+    </header>
+
+    <form id="searchForm" class="search">
+      <input id="question" type="text" autocomplete="off"
+             placeholder="e.g. If the keeper breaks the stumps while the batter is out of the crease, is it run out or stumped?" />
+      <button id="askBtn" type="submit">Ask</button>
+    </form>
+
+    <div class="examples" id="examples">
+      <span>Try:</span>
+      <button class="chip">How many overs can one bowler bowl in a 50-over match?</button>
+      <button class="chip">What happens if a team turns up late for the toss?</button>
+      <button class="chip">What does Law 41 cover?</button>
+    </div>
+
+    <section id="status" class="status hidden"></section>
+
+    <section id="result" class="result hidden">
+      <div id="answer" class="answer"></div>
+      <div id="sources" class="sources"></div>
+    </section>
+
+    <footer class="foot">
+      <span id="health" class="health">connecting…</span>
+      <span>· Free-tier project · first request after idle can take ~30s</span>
+    </footer>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
